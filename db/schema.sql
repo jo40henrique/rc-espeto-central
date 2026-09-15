@@ -1,0 +1,71 @@
+CREATE TABLE IF NOT EXISTS users (
+ id UUID PRIMARY KEY, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
+ role TEXT NOT NULL CHECK(role IN ('ADMIN','CAIXA','GARCOM')), active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+ id UUID PRIMARY KEY, name TEXT UNIQUE NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS products (
+ id UUID PRIMARY KEY, category_id UUID REFERENCES categories(id), name TEXT NOT NULL,
+ description TEXT, price NUMERIC(12,2) NOT NULL CHECK(price>=0), active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dining_tables (
+ id UUID PRIMARY KEY, number INTEGER UNIQUE NOT NULL,
+ status TEXT NOT NULL DEFAULT 'LIVRE'
+ CHECK(status IN ('LIVRE','OCUPADA','AGUARDANDO_PAGAMENTO','FECHADA')),
+ active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+ id UUID PRIMARY KEY, table_id UUID NOT NULL REFERENCES dining_tables(id),
+ waiter_id UUID NOT NULL REFERENCES users(id), status TEXT NOT NULL DEFAULT 'ABERTO',
+ opened_at TIMESTAMPTZ NOT NULL DEFAULT now(), closed_at TIMESTAMPTZ,
+ subtotal NUMERIC(12,2) NOT NULL DEFAULT 0, discount NUMERIC(12,2) NOT NULL DEFAULT 0,
+ additions NUMERIC(12,2) NOT NULL DEFAULT 0, service_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+ total NUMERIC(12,2) NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+ id UUID PRIMARY KEY, order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+ product_id UUID REFERENCES products(id), product_name TEXT NOT NULL,
+ unit_price NUMERIC(12,2) NOT NULL, quantity NUMERIC(12,3) NOT NULL CHECK(quantity>0),
+ status TEXT NOT NULL DEFAULT 'ATIVO' CHECK(status IN ('ATIVO','CANCELADO')),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+ id UUID PRIMARY KEY, order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+ method TEXT NOT NULL, amount NUMERIC(12,2) NOT NULL CHECK(amount>0),
+ created_by UUID NOT NULL REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+ id BIGSERIAL PRIMARY KEY, actor_id UUID REFERENCES users(id), action TEXT NOT NULL,
+ entity TEXT NOT NULL, entity_id UUID, table_number INTEGER,
+ before_data JSONB, after_data JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS cash_sessions (
+ id UUID PRIMARY KEY, opened_by UUID NOT NULL REFERENCES users(id),
+ opened_at TIMESTAMPTZ NOT NULL DEFAULT now(), closed_by UUID REFERENCES users(id),
+ closed_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'ABERTO'
+ CHECK(status IN ('ABERTO','FECHADO'))
+);
+
+CREATE TABLE IF NOT EXISTS cash_closures (
+ id UUID PRIMARY KEY, session_id UUID NOT NULL REFERENCES cash_sessions(id),
+ report JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_table_status ON orders(table_id,status);
+CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_closed_at ON orders(closed_at);
+CREATE INDEX IF NOT EXISTS idx_users_role_active ON users(role,active);
