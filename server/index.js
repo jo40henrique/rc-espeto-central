@@ -1,1 +1,1 @@
-
+app.use((req,res)=>{ if(req.path.startsWith('/api')) return res.status(404).json({error:'Not found'}); res.sendFile(process.cwd()+'/public/index.html',err=>{ if(err) res.status(500).end('Erro ao carregar a página.'); }); });
