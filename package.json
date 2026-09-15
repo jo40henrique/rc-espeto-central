@@ -2,6 +2,7 @@
   "name": "rc-espeto-central",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Sistema centralizado de comandas do RC Espetinho",
   "main": "server/index.js",
   "scripts": {
