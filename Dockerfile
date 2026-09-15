@@ -13,4 +13,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "node server/migrate.js && node server/seed.js && node server/index.js"]
